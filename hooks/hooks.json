@@ -1,19 +1,9 @@
 {
-  "description": "macOS notifications with sound and voice alerts when Claude Code needs attention. Identifies iTerm2 sessions by profile name.",
+  "description": "Claude Code adapter for macOS notifications with sound and voice alerts. Identifies iTerm2 sessions by profile name.",
   "hooks": {
     "Notification": [
       {
         "matcher": "permission_prompt",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash $CLAUDE_PLUGIN_ROOT/hooks/scripts/notify.sh",
-            "timeout": 10
-          }
-        ]
-      },
-      {
-        "matcher": "idle_prompt",
         "hooks": [
           {
             "type": "command",
