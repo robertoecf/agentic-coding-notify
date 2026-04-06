@@ -284,7 +284,7 @@ EOF
 fi
 
 # Force voice_label to safe value if label is too short (prevents "Codex LC" issues)
-if [ ${#label} -le 3 ] && [ "$label" != "App" ]; then
+if [ ${#label} -lt 4 ] && [ "$label" != "App" ]; then
   voice_label="Codex"
 fi
 

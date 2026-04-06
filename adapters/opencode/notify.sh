@@ -192,7 +192,7 @@ if [ "$(printf '%s' "$parsed" | safe_python3 -c 'import json,sys; print(json.loa
 fi
 
 # Force voice_label to safe value if label is too short
-if [ ${#label} -le 3 ] && [ "$label" != "App" ]; then
+if [ ${#label} -lt 4 ] && [ "$label" != "App" ]; then
   voice_label="OPENCODE"
 fi
 
@@ -222,7 +222,7 @@ if [ -f "$COOLDOWN_FILE" ]; then
 fi
 
 # Force voice_label to safe value if label is too short
-if [ ${#label} -le 3 ] && [ "$label" != "App" ]; then
+if [ ${#label} -lt 4 ] && [ "$label" != "App" ]; then
   voice_label="OPENCODE"
 fi
 
@@ -238,7 +238,7 @@ if [ "$should_notify" = "false" ]; then
 fi
 
 # Force voice_label to safe value if label is too short
-if [ ${#label} -le 3 ] && [ "$label" != "App" ]; then
+if [ ${#label} -lt 4 ] && [ "$label" != "App" ]; then
   voice_label="OPENCODE"
 fi
 
@@ -293,7 +293,7 @@ EOF
 fi
 
 # Force voice_label to safe value if label is too short
-if [ ${#label} -le 3 ] && [ "$label" != "App" ]; then
+if [ ${#label} -lt 4 ] && [ "$label" != "App" ]; then
   voice_label="OPENCODE"
 fi
 
@@ -326,7 +326,7 @@ PY
 fi
 
 # Force voice_label to safe value if label is too short
-if [ ${#label} -le 3 ] && [ "$label" != "App" ]; then
+if [ ${#label} -lt 4 ] && [ "$label" != "App" ]; then
   voice_label="OPENCODE"
 fi
 
@@ -343,7 +343,7 @@ else
 fi
 
 # Force voice_label to safe value if label is too short
-if [ ${#label} -le 3 ] && [ "$label" != "App" ]; then
+if [ ${#label} -lt 4 ] && [ "$label" != "App" ]; then
   voice_label="OPENCODE"
 fi
 
