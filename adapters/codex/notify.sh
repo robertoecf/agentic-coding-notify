@@ -328,6 +328,7 @@ else
   osascript -e "display notification \"$message\" with title \"$title\" subtitle \"$subtitle\" sound name \"Submarine\"" >/dev/null 2>&1 || true
 fi
 
+printf "%s | VOICE: %s\n" "$(date '+%Y-%m-%d %H:%M:%S')" "$voice_label" >> "$LOG"
 nohup bash -c "afplay \"/System/Library/Sounds/Basso.aiff\" & say -v Samantha -r 300 \"$voice_label\" && afplay \"/System/Library/Sounds/Submarine.aiff\"" >> "$LOG" 2>&1 &
 disown
 
