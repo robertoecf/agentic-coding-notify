@@ -197,12 +197,19 @@ print(
 PY
 )"
 
-title="$(printf '%s' "$parsed" | safe_python3 -c 'import json,sys; print(json.load(sys.stdin)["title"])')"
-subtitle="$(printf '%s' "$parsed" | safe_python3 -c 'import json,sys; print(json.load(sys.stdin)["subtitle"])')"
-message="$(printf '%s' "$parsed" | safe_python3 -c 'import json,sys; print(json.load(sys.stdin)["message"])')"
-label="$(printf '%s' "$parsed" | safe_python3 -c 'import json,sys; print(json.load(sys.stdin)["label"])')"
-event_type="$(printf '%s' "$parsed" | safe_python3 -c 'import json,sys; print(json.load(sys.stdin)["event_type"])')"
-cwd_value="$(printf '%s' "$parsed" | safe_python3 -c 'import json,sys; print(json.load(sys.stdin)["cwd"])')"
+# Extract all fields in a single python3 call (instead of 6 separate forks).
+eval "$(PARSED_JSON="$parsed" safe_python3 - <<'EXTRACT'
+import json, os, shlex
+d = json.loads(os.environ["PARSED_JSON"])
+mapping = [
+    ("title", "title"), ("subtitle", "subtitle"), ("message", "message"),
+    ("label", "label"), ("event_type", "event_type"), ("cwd_value", "cwd"),
+]
+for shell_name, json_key in mapping:
+    val = shlex.quote(d.get(json_key, ""))
+    print("%s=%s" % (shell_name, val))
+EXTRACT
+)"
 
 # Ignore events we don't handle today. `agent-turn-complete` is the only one
 # Codex emits right now, but guard against future additions.
@@ -264,42 +271,41 @@ esac
 
 # Cooldown: suppress identical messages within the window. Keyed on
 # (label, message) so different sessions don't silence each other.
+# Check + persist in a single python3 call.
 cooldown_key="${label}::${message}"
-should_notify=true
-if [ -f "$COOLDOWN_FILE" ]; then
-  export _COOLDOWN_FILE="$COOLDOWN_FILE"
-  export _COOLDOWN_KEY="$cooldown_key"
-  export _COOLDOWN_WINDOW="$COOLDOWN_SECONDS"
-  if ! safe_python3 - <<'PY'
+export _COOLDOWN_FILE="$COOLDOWN_FILE"
+export _COOLDOWN_KEY="$cooldown_key"
+export _COOLDOWN_WINDOW="$COOLDOWN_SECONDS"
+if ! safe_python3 - <<'PY'
 import json, os, sys, time
+
 path = os.environ["_COOLDOWN_FILE"]
 key = os.environ["_COOLDOWN_KEY"]
 window = int(os.environ["_COOLDOWN_WINDOW"])
+now = int(time.time())
+
+# Check existing state.
+suppressed = False
 try:
     with open(path) as f:
         data = json.load(f)
+    if data.get("key") == key and now - int(data.get("timestamp", 0)) < window:
+        suppressed = True
 except Exception:
-    sys.exit(0)
-if data.get("key") == key and int(time.time()) - int(data.get("timestamp", 0)) < window:
-    sys.exit(1)
-sys.exit(0)
-PY
-  then
-    should_notify=false
-    echo "$(date '+%Y-%m-%d %H:%M:%S') | COOLDOWN skip label=$label" >> "$LOG"
-  fi
-fi
+    pass
 
-# Persist state for next invocation regardless of whether we emit now, so a
-# rapid retry with identical message stays suppressed.
-export _COOLDOWN_FILE="$COOLDOWN_FILE"
-export _COOLDOWN_KEY="$cooldown_key"
-safe_python3 - <<'PY'
-import json, os, time
-path = os.environ["_COOLDOWN_FILE"]
+# Always persist current state so rapid retries stay suppressed.
 with open(path, "w") as f:
-    json.dump({"key": os.environ["_COOLDOWN_KEY"], "timestamp": int(time.time())}, f)
+    json.dump({"key": key, "timestamp": now}, f)
+
+sys.exit(1 if suppressed else 0)
 PY
+then
+  echo "$(date '+%Y-%m-%d %H:%M:%S') | COOLDOWN skip label=$label" >> "$LOG"
+  should_notify=false
+else
+  should_notify=true
+fi
 
 printf '%s | event=%s | label=%s | voice=%s | preview=%s\n' \
   "$(date '+%Y-%m-%d %H:%M:%S')" "$event_type" "$label" "$voice_label" "$message" >> "$LOG"
