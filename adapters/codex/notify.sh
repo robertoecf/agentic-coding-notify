@@ -188,6 +188,7 @@ print(
             "title": "Codex",
             "subtitle": subtitle,
             "message": message_preview,
+            "full_msg": assistant_msg,
             "label": label,
             "event_type": event_type,
             "cwd": cwd,
@@ -203,7 +204,8 @@ import json, os, shlex
 d = json.loads(os.environ["PARSED_JSON"])
 mapping = [
     ("title", "title"), ("subtitle", "subtitle"), ("message", "message"),
-    ("label", "label"), ("event_type", "event_type"), ("cwd_value", "cwd"),
+    ("full_msg", "full_msg"), ("label", "label"), ("event_type", "event_type"),
+    ("cwd_value", "cwd"),
 ]
 for shell_name, json_key in mapping:
     val = shlex.quote(d.get(json_key, ""))
@@ -269,10 +271,16 @@ case "$label" in
     ;;
 esac
 
-# Cooldown: suppress identical messages within the window. Keyed on
-# (label, message) so different sessions don't silence each other.
-# Check + persist in a single python3 call.
-cooldown_key="${label}::${message}"
+# Cooldown: suppress identical events within the window. Keyed on
+# (label, full_assistant_msg) — NOT the truncated preview — so two distinct
+# long messages that share the same first 160 chars are still distinguishable.
+#
+# Sliding-window semantics: the timestamp is always refreshed, even when
+# suppressed. This means a steady stream of identical events keeps extending
+# the suppression. That is intentional: if Codex fires the same turn-complete
+# ten times in a row, the user only needs one notification. A new *distinct*
+# message resets the window immediately.
+cooldown_key="${label}::${full_msg}"
 export _COOLDOWN_FILE="$COOLDOWN_FILE"
 export _COOLDOWN_KEY="$cooldown_key"
 export _COOLDOWN_WINDOW="$COOLDOWN_SECONDS"
@@ -354,10 +362,12 @@ end run
 APPLESCRIPT
 fi
 
-# voice_label is built from controlled prefixes + label (which may come from
-# iTerm2 profile names or cwd basenames). Pass via env to avoid injection.
-VOICE_LABEL="$voice_label" LOG_FILE="$LOG" \
-  nohup bash -c 'afplay "/System/Library/Sounds/Basso.aiff" & say -v Samantha -r 300 "$VOICE_LABEL"' >> "$LOG" 2>&1 &
+# Run voice in a background subshell. Using ( ... ) & instead of bash -c "..."
+# avoids quoting hazards — $voice_label is passed as a real argv entry.
+(
+  afplay "/System/Library/Sounds/Basso.aiff" &
+  say -v Samantha -r 300 -- "$voice_label"
+) >> "$LOG" 2>&1 &
 disown
 
 exit 0
